@@ -2,6 +2,7 @@ import customtkinter
 import tkintermapview
 from tkintermapview import TkinterMapView
 import tkinter as tk
+from tkinter import *
 import gc
 import math
 import datetime
@@ -15,7 +16,71 @@ import pandas as pd
 import time
 from threading import *
 
-#customtkinter.set_default_color_theme("blue")
+import math
+import tkinter as tk
+
+customtkinter.set_default_color_theme("blue")  # Themes: "blue" (standard), "green", "dark-blue"
+
+class Speedometer(tk.Frame):
+    def __init__(self, master=None, max_speed=260, start_angle=120, amplitude=300, *args, **kwargs):
+        super().__init__(master, *args, **kwargs)
+        self.canvas_width = 200
+        self.canvas_height = 200
+        self.radius = self.canvas_width / 2 - 10
+        self.max_speed = max_speed
+        self.amplitude = amplitude
+        self.start_angle=start_angle
+        self.canvas = tk.Canvas(self, width=self.canvas_width, height=self.canvas_height, bg=None , highlightthickness=0,bd=0)
+        self.canvas.pack()
+        self.curspeed=0
+        self.anglestep=self.amplitude/self.max_speed
+        self.draw_speedometer()
+        self.set_speed(0)
+        
+        
+    def draw_speedometer(self):
+        # Draw outer circle
+        self.canvas.create_oval(10, 10, self.canvas_width - 10, self.canvas_height - 10, fill='black', width=2)
+
+        for i in range(0,self.max_speed+1,3):
+
+            if i%30==0:l=-12
+            elif i%10==0:l=-6
+            elif i%5==0:l=-3
+            else:l=1
+            
+            angle=self.start_angle+i*self.anglestep
+            x1=100+(80+l) * math.cos(math.radians(angle))
+            x2=100+90 * math.cos(math.radians(angle))
+            y1=100+(80+l) * math.sin(math.radians(angle))
+            y2=100+90 * math.sin(math.radians(angle))
+                             
+            self.canvas.create_line(x1, y1, x2 ,y2 ,fill='white', width=1)
+
+            if i%30==0:
+                x1=100+ 57 * math.cos(math.radians(angle))
+                y1=100+ 57 * math.sin(math.radians(angle))
+                self.canvas.create_text(x1, y1, text=str(i), fill="#ffffff",font=('Arial', 8, 'bold'))
+            elif i%5==0:
+                x1=100+ 65 * math.cos(math.radians(angle))
+                y1=100+ 65 * math.sin(math.radians(angle))
+                self.canvas.create_text(x1, y1, text=str(i), fill="#ffffff",font=('Arial', 6))
+
+            self.needle_len = self.radius - 10  
+            self.needle = self.canvas.create_line(100, 100,100, 100,fill='red', width=0)
+
+    
+
+    def set_speed(self, speed):
+        self.canvas.delete(self.needle)
+        angle = math.radians(speed * self.anglestep+self.start_angle)
+        needle_x = self.needle_len * math.cos(angle) + self.canvas_width / 2
+        needle_y = self.needle_len * math.sin(angle) + self.canvas_height / 2
+        self.needle_len = self.radius - 10
+        self.needle = self.canvas.create_line(self.canvas_width / 2, self.canvas_height / 2,
+                                               needle_x, needle_y,
+                                               fill='red', width=3)
+        self.canvas.create_oval(105, 105, 95, 95, fill='black', width=5)
 
 class CRunInfos(customtkinter.CTkFrame):
     def __init__(self, master, **kwargs):
@@ -232,6 +297,9 @@ class App(customtkinter.CTk):
         self.axgfrt.clear()
         self.axgfrt.plot('Glat', 'Glon', data=datag ,linestyle='', marker='o', markersize=8, color="red")
         self.figgf.canvas.draw_idle()
+
+        #speed
+        self.smeter.set_speed(speed)
         
     def slider_event(self,val):
         if val >= len(self.out) or val<0 or self.isplaying==True :return
@@ -267,7 +335,7 @@ class App(customtkinter.CTk):
         self.grid_columnconfigure(2, weight=0)
         self.grid_rowconfigure(0, weight=1)
 
-        self.frame_left = customtkinter.CTkFrame(master=self, width=150, corner_radius=0, fg_color=None)
+        self.frame_left = customtkinter.CTkFrame(master=self, width=224, corner_radius=0, fg_color=None)
         self.frame_left.grid(row=0, column=0, padx=0, pady=0, sticky="nsew")
 
         self.frame_right = customtkinter.CTkFrame(master=self, corner_radius=0,width=500)
@@ -289,6 +357,10 @@ class App(customtkinter.CTk):
         self.appearance_mode_label.grid(row=2, column=0, padx=(20, 20), pady=(20, 0))
         self.appearance_mode_optionemenu = customtkinter.CTkOptionMenu(self.frame_left, values=["Light", "Dark", "System"],command=self.change_appearance_mode)
         self.appearance_mode_optionemenu.grid(row=3, column=0, padx=(20, 20), pady=(10, 20))
+
+        self.smeter=Speedometer(master=self.frame_left)
+        self.smeter.grid(row=4, column=0, padx=(12, 12), pady=(12, 12))
+        
 
         # ============ frame_right ============
 
