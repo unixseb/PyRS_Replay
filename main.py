@@ -21,6 +21,23 @@ import tkinter as tk
 
 customtkinter.set_default_color_theme("blue")  # Themes: "blue" (standard), "green", "dark-blue"
 
+class WheelMeter(tk.Frame):
+    def __init__(self, master=None, *args, **kwargs):
+        super().__init__(master, *args, **kwargs)
+        self.current_path = os.path.join(os.path.dirname(os.path.abspath(__file__)))
+        self.canvas_width = 200
+        self.canvas_height = 200
+        self.canvas= Canvas(self, width= self.canvas_width, height= self.canvas_height, bg=None , highlightthickness=0,bd=0)
+        self.canvas.pack()
+        self.img=Image.open(os.path.join(self.current_path, "imgs", "wheel.png"))
+        self.wheelimg = ImageTk.PhotoImage(self.img)
+        self.canvas.create_image(100,100,image=self.wheelimg)
+
+    def set_angle(self,angle):
+        self.wheelimg = ImageTk.PhotoImage(self.img.rotate(angle))
+        self.canvas.create_image(100,100,image=self.wheelimg)
+        
+
 class Speedometer(tk.Frame):
     def __init__(self, master=None, max_speed=260, start_angle=120, amplitude=300, *args, **kwargs):
         super().__init__(master, *args, **kwargs)
@@ -300,6 +317,7 @@ class App(customtkinter.CTk):
 
         #speed
         self.smeter.set_speed(speed)
+        self.wheelmeter.set_angle(self.get_chan(93,l)["decoded"])
         
     def slider_event(self,val):
         if val >= len(self.out) or val<0 or self.isplaying==True :return
@@ -360,6 +378,9 @@ class App(customtkinter.CTk):
 
         self.smeter=Speedometer(master=self.frame_left)
         self.smeter.grid(row=4, column=0, padx=(12, 12), pady=(12, 12))
+
+        self.wheelmeter=WheelMeter(master=self.frame_left)
+        self.wheelmeter.grid(row=5, column=0, padx=(12, 12), pady=(12, 12))
         
 
         # ============ frame_right ============
