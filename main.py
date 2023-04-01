@@ -27,15 +27,18 @@ class WheelMeter(tk.Frame):
         self.current_path = os.path.join(os.path.dirname(os.path.abspath(__file__)))
         self.canvas_width = 200
         self.canvas_height = 200
-        self.canvas= Canvas(self, width= self.canvas_width, height= self.canvas_height, bg=None , highlightthickness=0,bd=0)
+        self.canvas= Canvas(self, width= self.canvas_width, height= self.canvas_height,bg='gray17' , highlightthickness=0,bd=0)
         self.canvas.pack()
         self.img=Image.open(os.path.join(self.current_path, "imgs", "wheel.png"))
         self.wheelimg = ImageTk.PhotoImage(self.img)
-        self.canvas.create_image(100,100,image=self.wheelimg)
+        self.curimg=self.canvas.create_image(100,100,image=self.wheelimg)
 
     def set_angle(self,angle):
-        self.wheelimg = ImageTk.PhotoImage(self.img.rotate(angle))
-        self.canvas.create_image(100,100,image=self.wheelimg)
+        oldimg=self.wheelimg
+        newimg=ImageTk.PhotoImage(self.img.rotate(angle))
+        self.curimg=self.canvas.create_image(100,100,image=newimg)
+        self.canvas.delete(oldimg)
+        self.wheelimg=newimg
         
 
 class Speedometer(tk.Frame):
@@ -47,7 +50,7 @@ class Speedometer(tk.Frame):
         self.max_speed = max_speed
         self.amplitude = amplitude
         self.start_angle=start_angle
-        self.canvas = tk.Canvas(self, width=self.canvas_width, height=self.canvas_height, bg=None , highlightthickness=0,bd=0)
+        self.canvas = tk.Canvas(self, width=self.canvas_width, height=self.canvas_height,bg='gray17' , highlightthickness=0,bd=0)
         self.canvas.pack()
         self.curspeed=0
         self.anglestep=self.amplitude/self.max_speed
@@ -84,7 +87,8 @@ class Speedometer(tk.Frame):
                 self.canvas.create_text(x1, y1, text=str(i), fill="#ffffff",font=('Arial', 6))
 
             self.needle_len = self.radius - 10  
-            self.needle = self.canvas.create_line(100, 100,100, 100,fill='red', width=0)
+            self.needle = self.canvas.create_line(100, 100,100, 100,fill='#ffcc00', width=0)
+            self.canvas.create_oval(105, 105, 95, 95, fill='#ffcc00', width=5)
 
     
 
@@ -94,10 +98,64 @@ class Speedometer(tk.Frame):
         needle_x = self.needle_len * math.cos(angle) + self.canvas_width / 2
         needle_y = self.needle_len * math.sin(angle) + self.canvas_height / 2
         self.needle_len = self.radius - 10
-        self.needle = self.canvas.create_line(self.canvas_width / 2, self.canvas_height / 2,
-                                               needle_x, needle_y,
-                                               fill='red', width=3)
-        self.canvas.create_oval(105, 105, 95, 95, fill='black', width=5)
+        self.needle = self.canvas.create_line(self.canvas_width / 2, self.canvas_height / 2,needle_x, needle_y,fill='#ffcc00', width=3)
+        
+
+class Rpmmeter(tk.Frame):
+    def __init__(self, master=None, max_speed=8000, start_angle=120, amplitude=240, *args, **kwargs):
+        super().__init__(master, *args, **kwargs)
+        self.canvas_width = 200
+        self.canvas_height = 200
+        self.radius = self.canvas_width / 2 - 10
+        self.max_speed = max_speed
+        self.amplitude = amplitude
+        self.start_angle=start_angle
+        self.canvas = tk.Canvas(self, width=self.canvas_width, height=self.canvas_height,bg='gray17' , highlightthickness=0,bd=0)
+        self.canvas.pack()
+        self.curspeed=0
+        self.anglestep=self.amplitude/self.max_speed
+        self.draw_speedometer()
+        self.set_speed(0)
+        
+        
+    def draw_speedometer(self):
+        # Draw outer circle
+        self.canvas.create_oval(10, 10, self.canvas_width - 10, self.canvas_height - 10, fill='black', width=2)
+
+        for i in range(0,self.max_speed+1,100):
+
+            if i%1000==0:l=-12
+            elif i%500==0:l=-6
+            elif i%100==0:l=-3
+            else:l=1
+            
+            angle=self.start_angle+i*self.anglestep
+            x1=100+(80+l) * math.cos(math.radians(angle))
+            x2=100+90 * math.cos(math.radians(angle))
+            y1=100+(80+l) * math.sin(math.radians(angle))
+            y2=100+90 * math.sin(math.radians(angle))
+                             
+            tcolor="#ffffff"
+            if i>=6000:tcolor="#ff0000"
+            self.canvas.create_line(x1, y1, x2 ,y2 ,fill=tcolor, width=1)
+
+            if i%1000==0:
+                x1=100+ 57 * math.cos(math.radians(angle))
+                y1=100+ 57 * math.sin(math.radians(angle))
+                self.canvas.create_text(x1, y1, text=str(i//1000), fill="#ffffff",font=('Arial', 8, 'bold'))
+
+            self.needle_len = self.radius - 10  
+            self.needle = self.canvas.create_line(100, 100,100, 100,fill='#ffcc00', width=0)
+            self.canvas.create_oval(105, 105, 95, 95, fill='#ffcc00', width=5)
+
+    def set_speed(self, speed):
+        self.canvas.delete(self.needle)
+        angle = math.radians(speed * self.anglestep+self.start_angle)
+        needle_x = self.needle_len * math.cos(angle) + self.canvas_width / 2
+        needle_y = self.needle_len * math.sin(angle) + self.canvas_height / 2
+        self.needle_len = self.radius - 10
+        self.needle = self.canvas.create_line(self.canvas_width / 2, self.canvas_height / 2,needle_x, needle_y,fill='#ffcc00', width=3)
+        
 
 class CRunInfos(customtkinter.CTkFrame):
     def __init__(self, master, **kwargs):
@@ -317,6 +375,7 @@ class App(customtkinter.CTk):
 
         #speed
         self.smeter.set_speed(speed)
+        self.rpmmeter.set_speed(speed=int(self.get_chan(18,l)["decoded"]))
         self.wheelmeter.set_angle(self.get_chan(93,l)["decoded"])
         
     def slider_event(self,val):
@@ -345,6 +404,8 @@ class App(customtkinter.CTk):
         self.bind("<Command-q>", self.on_closing)
         self.bind("<Command-w>", self.on_closing)
         self.createcommand('tk::mac::Quit', self.on_closing)
+
+        self.wm_attributes('-transparentcolor', '#ab23ff')
         
         # ============ create two CTkFrames ============
 
@@ -377,12 +438,12 @@ class App(customtkinter.CTk):
         self.appearance_mode_optionemenu.grid(row=3, column=0, padx=(20, 20), pady=(10, 20))
 
         self.smeter=Speedometer(master=self.frame_left)
-        self.smeter.grid(row=4, column=0, padx=(12, 12), pady=(12, 12))
-
+        self.smeter.grid(row=4, column=0, padx=(12, 12), pady=(0, 0))
+        self.rpmmeter=Rpmmeter(master=self.frame_left,start_angle=120,max_speed=8000,amplitude=240)
+        self.rpmmeter.grid(row=5, column=0, padx=(12, 12), pady=(0, 0))
         self.wheelmeter=WheelMeter(master=self.frame_left)
-        self.wheelmeter.grid(row=5, column=0, padx=(12, 12), pady=(12, 12))
+        self.wheelmeter.grid(row=6, column=0, padx=(12, 12), pady=(0, 0))
         
-
         # ============ frame_right ============
 
         self.frame_right.grid_rowconfigure(1, weight=1)
@@ -886,6 +947,8 @@ class App(customtkinter.CTk):
         self.starttime = time.perf_counter()
         while self.curindex < len(self.out)-1:
             if self.stopevent.is_set():
+                if rt:
+                    rt.join()
                 break
 ##            if self.pauseevent.is_set():
 ##                continue
@@ -897,8 +960,11 @@ class App(customtkinter.CTk):
                 self.starttime = time.perf_counter()
                 continue
             else: lastindex=inti
-            self.update_carpos(inti)
-            time.sleep(0.05)
+            #self.update_carpos(inti)
+            rt=Thread(target=self.update_carpos,kwargs=({'i':inti}))
+            rt.start()
+            #time.sleep(0.05)
+            rt.join()
             self.starttime = time.perf_counter()
         self.stopevent.clear()
         self.isplaying=False
@@ -936,6 +1002,8 @@ class App(customtkinter.CTk):
             self.map_widget.set_tile_server("https://mt0.google.com/vt/lyrs=s&hl=en&x={x}&y={y}&z={z}&s=Ga", max_zoom=22)
 
     def on_closing(self, event=0):
+        if self.isplaying==True:
+            self.stop_render()
         self.destroy()
 
     def start(self):
