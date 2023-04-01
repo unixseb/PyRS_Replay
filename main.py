@@ -21,6 +21,27 @@ import tkinter as tk
 
 customtkinter.set_default_color_theme("blue")  # Themes: "blue" (standard), "green", "dark-blue"
 
+class Pedalier(tk.Frame):
+    def __init__(self, master=None, *args, **kwargs):
+        super().__init__(master, *args, **kwargs)
+        self.current_path = os.path.join(os.path.dirname(os.path.abspath(__file__)))
+        self.canvas_width = 200
+        self.canvas_height = 200
+        self.canvas= Canvas(self, width= self.canvas_width, height= self.canvas_height,bg='gray17' , highlightthickness=0,bd=0)
+        self.canvas.grid(pady=0, padx=0, row=0,column=0,sticky="NSEW")
+        self.img=Image.open(os.path.join(self.current_path, "imgs", "pedals.png"))
+        self.pedalsimg = ImageTk.PhotoImage(self.img)
+        self.curimg=self.canvas.create_image(100,100,image=self.pedalsimg)
+        self.barspeed=customtkinter.CTkProgressBar(master=self,orientation="vertical",width=20,height=197,progress_color="#ffcc00",corner_radius=0)
+        self.barspeed.grid(pady=(0,1),  padx=(0,9), row=0,column=0,sticky="SE")
+        self.barbreak=customtkinter.CTkProgressBar(master=self,orientation="vertical",width=20,height=149,progress_color="#ffcc00",corner_radius=0)
+        self.barbreak.grid(pady=(0,1), padx=(72,0), row=0,column=0,sticky="SW")
+
+    def set_pedals(self,t,b):
+        self.barbreak.set(b/100)
+        self.barspeed.set(t/100)
+
+        
 class WheelMeter(tk.Frame):
     def __init__(self, master=None, *args, **kwargs):
         super().__init__(master, *args, **kwargs)
@@ -52,10 +73,10 @@ class Speedometer(tk.Frame):
         self.start_angle=start_angle
         self.canvas = tk.Canvas(self, width=self.canvas_width, height=self.canvas_height,bg='gray17' , highlightthickness=0,bd=0)
         self.canvas.pack()
-        self.curspeed=0
+        self.curspeed=-1
         self.anglestep=self.amplitude/self.max_speed
         self.draw_speedometer()
-        self.set_speed(0)
+        self.set_speed(0,0)
         
         
     def draw_speedometer(self):
@@ -89,17 +110,21 @@ class Speedometer(tk.Frame):
             self.needle_len = self.radius - 10  
             self.needle = self.canvas.create_line(100, 100,100, 100,fill='#ffcc00', width=0)
             self.canvas.create_oval(105, 105, 95, 95, fill='#ffcc00', width=5)
-
+            self.txtgear=self.canvas.create_text(100, 165, text="", fill="#ffcc00",font=('Arial', 24, 'bold'))
     
 
-    def set_speed(self, speed):
-        self.canvas.delete(self.needle)
-        angle = math.radians(speed * self.anglestep+self.start_angle)
-        needle_x = self.needle_len * math.cos(angle) + self.canvas_width / 2
-        needle_y = self.needle_len * math.sin(angle) + self.canvas_height / 2
-        self.needle_len = self.radius - 10
-        self.needle = self.canvas.create_line(self.canvas_width / 2, self.canvas_height / 2,needle_x, needle_y,fill='#ffcc00', width=3)
-        
+    def set_speed(self, speed,gear):
+        if speed!=self.curspeed:
+            oldneedle=self.needle
+            angle = math.radians(speed * self.anglestep+self.start_angle)
+            needle_x = self.needle_len * math.cos(angle) + self.canvas_width / 2
+            needle_y = self.needle_len * math.sin(angle) + self.canvas_height / 2
+            self.needle_len = self.radius - 10
+            needle = self.canvas.create_line(self.canvas_width / 2, self.canvas_height / 2,needle_x, needle_y,fill='#ffcc00', width=3)
+            self.canvas.delete(oldneedle)
+            self.needle=needle
+            self.curpseed=speed
+            self.canvas.itemconfigure(self.txtgear, text=gear)
 
 class Rpmmeter(tk.Frame):
     def __init__(self, master=None, max_speed=8000, start_angle=120, amplitude=240, *args, **kwargs):
@@ -112,10 +137,10 @@ class Rpmmeter(tk.Frame):
         self.start_angle=start_angle
         self.canvas = tk.Canvas(self, width=self.canvas_width, height=self.canvas_height,bg='gray17' , highlightthickness=0,bd=0)
         self.canvas.pack()
-        self.curspeed=0
+        self.curspeed=-1
         self.anglestep=self.amplitude/self.max_speed
         self.draw_speedometer()
-        self.set_speed(0)
+        self.set_speed(0,0)
         
         
     def draw_speedometer(self):
@@ -147,15 +172,20 @@ class Rpmmeter(tk.Frame):
             self.needle_len = self.radius - 10  
             self.needle = self.canvas.create_line(100, 100,100, 100,fill='#ffcc00', width=0)
             self.canvas.create_oval(105, 105, 95, 95, fill='#ffcc00', width=5)
+            self.txtgear=self.canvas.create_text(125, 140, text="", fill="#ffcc00",font=('Arial', 36, 'bold'))
 
-    def set_speed(self, speed):
-        self.canvas.delete(self.needle)
-        angle = math.radians(speed * self.anglestep+self.start_angle)
-        needle_x = self.needle_len * math.cos(angle) + self.canvas_width / 2
-        needle_y = self.needle_len * math.sin(angle) + self.canvas_height / 2
-        self.needle_len = self.radius - 10
-        self.needle = self.canvas.create_line(self.canvas_width / 2, self.canvas_height / 2,needle_x, needle_y,fill='#ffcc00', width=3)
-        
+    def set_speed(self, speed,gear):
+         if speed!=self.curspeed:
+            oldneedle=self.needle
+            angle = math.radians(speed * self.anglestep+self.start_angle)
+            needle_x = self.needle_len * math.cos(angle) + self.canvas_width / 2
+            needle_y = self.needle_len * math.sin(angle) + self.canvas_height / 2
+            self.needle_len = self.radius - 10
+            needle = self.canvas.create_line(self.canvas_width / 2, self.canvas_height / 2,needle_x, needle_y,fill='#ffcc00', width=3)
+            self.canvas.delete(oldneedle)
+            self.needle=needle
+            self.curpseed=speed
+            self.canvas.itemconfigure(self.txtgear, text=gear)
 
 class CRunInfos(customtkinter.CTkFrame):
     def __init__(self, master, **kwargs):
@@ -341,13 +371,18 @@ class App(customtkinter.CTk):
         v=chan["decoded"]
         speed=int(self.get_chan(64,l)["decoded"])
         gf=self.get_chan(8,l)["decoded"]
-        
+        gear=str(self.get_chan(27,l)["decoded"])
+        t=int(round(self.get_chan(74,l)["decoded"],1))
+        b=int(round(self.get_chan(94,l)["decoded"],1))
+        hp=self.get_chan(23,l)["decoded"]
+        rpm=self.get_chan(18,l)["decoded"]
+              
         self.carmarker.set_position(v[1],v[0])
         self.carmarker.set_text(str(speed)+" Kmh"+
-                                "\n"+str(self.get_chan(23,l)["decoded"])+" Hp"+
-                                "\nGear : "+str(self.get_chan(27,l)["decoded"])+
-                                "\nThrottle :"+str(int(round(self.get_chan(74,l)["decoded"],1)))+"%"+
-                                "\nBreak : "+str(int(round(self.get_chan(94,l)["decoded"],1)))+"%"
+                                "\n"+str(hp)+" Hp"+
+                                "\nGear : "+gear+
+                                "\nThrottle :"+str(t)+"%"+
+                                "\nBreak : "+str(b)+"%"
                                 )
         
         #self.map_widget.update()
@@ -374,9 +409,10 @@ class App(customtkinter.CTk):
         self.figgf.canvas.draw_idle()
 
         #speed
-        self.smeter.set_speed(speed)
-        self.rpmmeter.set_speed(speed=int(self.get_chan(18,l)["decoded"]))
+        self.smeter.set_speed(speed=speed,gear=gear)
+        self.rpmmeter.set_speed(speed=int(rpm),gear=gear)
         self.wheelmeter.set_angle(self.get_chan(93,l)["decoded"])
+        self.pedalier.set_pedals(t,b)
         
     def slider_event(self,val):
         if val >= len(self.out) or val<0 or self.isplaying==True :return
@@ -443,6 +479,8 @@ class App(customtkinter.CTk):
         self.rpmmeter.grid(row=5, column=0, padx=(12, 12), pady=(0, 0))
         self.wheelmeter=WheelMeter(master=self.frame_left)
         self.wheelmeter.grid(row=6, column=0, padx=(12, 12), pady=(0, 0))
+        self.pedalier=Pedalier(master=self.frame_left)
+        self.pedalier.grid(row=7, column=0, padx=(12, 12), pady=(0, 0))
         
         # ============ frame_right ============
 
@@ -568,8 +606,8 @@ class App(customtkinter.CTk):
         self.map_widget.add_right_click_menu_command(label="Set Chrono Line",command=self.set_custom_start,pass_coords=True)
 
         self.current_path = os.path.join(os.path.dirname(os.path.abspath(__file__)))
-        self.starticon = ImageTk.PhotoImage(Image.open(os.path.join(self.current_path, "imgs", "finish-icon-24.png")).resize((40, 40)))
-        self.caricon = ImageTk.PhotoImage(Image.open(os.path.join(self.current_path, "imgs", "car_pin.png")).resize((40, 40)))
+        self.starticon = ImageTk.PhotoImage(Image.open(os.path.join(self.current_path, "imgs", "finish-icon-24.png")).resize((48, 48)))
+        self.caricon = ImageTk.PhotoImage(Image.open(os.path.join(self.current_path, "imgs", "car_pin.png")).resize((48, 48)))
 
         self.init_vars()
         
