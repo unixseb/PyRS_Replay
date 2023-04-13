@@ -248,23 +248,22 @@ class CLapsFrame(customtkinter.CTkScrollableFrame):
         self.laps=[]
 
     def extractlap(self,i):
-        l=0
-        startindex=-1
-        app.carpath=[]
-        maxlapspeed=0
-        for line in app.out:
-            chan=app.get_chan(10,line)
-            if chan["lap"]==i:
-                if startindex==-1:startindex=l
-                app.carpath.append((chan["decoded"][1],chan["decoded"][0]))
-                curspeed=app.get_chan(64,line)["decoded"]
-                if maxlapspeed < curspeed:
-                    maxlapspeed=curspeed
-            l+=1
-        if(len(app.carpath)>0):
-            app.map_widget.delete_all_path()
-            app.colorize_path(maxlapspeed,startindex)
-            
+##        l=0
+##        startindex=-1
+##        app.carpath=[]
+##        maxlapspeed=0
+##        for line in app.out:
+##            chan=app.get_chan(10,line)
+##            if chan["lap"]==i:
+##                if startindex==-1:startindex=l
+##                app.carpath.append((chan["decoded"][1],chan["decoded"][0]))
+##                curspeed=app.get_chan(64,line)["decoded"]
+##                if maxlapspeed < curspeed:
+##                    maxlapspeed=curspeed
+##            l+=1
+##        if(len(app.carpath)>0):
+##            app.map_widget.delete_all_path()
+##            app.colorize_path(maxlapspeed,startindex)  
         for label in self.laps:
             label.configure(text_color=("#000000","#FFFFFF"))
         if i < len(self.laps):
@@ -365,7 +364,27 @@ class App(customtkinter.CTk):
             self.chronomarker.set_position(coords[0], coords[1])
             self.runinfosframe.val_nblaps.configure(text=self.nblaps)
             
+    def extractlap(self,i):
+        l=0
+        startindex=-1
+        self.carpath=[]
+        maxlapspeed=0
+        self.lapsframe.extractlap(i)
+        for line in self.out:
+            chan=self.get_chan(10,line)
+            if chan["lap"]==i:
+                if startindex==-1:startindex=l
+                self.carpath.append((chan["decoded"][1],chan["decoded"][0]))
+                curspeed=self.get_chan(64,line)["decoded"]
+                if maxlapspeed < curspeed:
+                    maxlapspeed=curspeed
+            l+=1
+        if(len(self.carpath)>0):
+            self.map_widget.delete_all_path()
+            self.colorize_path(maxlapspeed,startindex)   
+
     def update_carpos(self,i):
+        if(i>len(self.out)):return
         l=self.out[int(i)]
         chan=self.get_chan(10,l)
         v=chan["decoded"]
@@ -390,10 +409,13 @@ class App(customtkinter.CTk):
         self.curtimelabel.configure(text=self.lapsframe.ms2HMS(self.curindex*10))
         curlap=chan["lap"]
         if curlap != self.lastlap:
-            self.pauseevent.set()
-            self.lapsframe.extractlap(curlap)
+            #self.pauseevent.set()
+            lt=Thread(target=self.extractlap,kwargs=({'i':curlap}))
+            lt.start()
+            time.sleep(0.1)
+            #self.extractlap(curlap)
             self.lastlap=curlap
-            self.pauseevent.clear()
+            #self.pauseevent.clear()
 
         
         #graphs
@@ -504,12 +526,14 @@ class App(customtkinter.CTk):
         self.psframe.grid_columnconfigure(0, weight=1)
         self.psframe.grid_columnconfigure(2, weight=1)
         
-        self.btplay=customtkinter.CTkButton(master=self.psframe,text="play",command=self.start_render)
-        self.btplay.grid(row=0, column=0, sticky="ew", padx=(0, 12), pady=0)
-        self.curtimelabel = customtkinter.CTkLabel(self.psframe, text="curindex")
+        imgplay=tk.PhotoImage(file='./imgs/play.png')
+        self.btplay=customtkinter.CTkButton(master=self.psframe,text="play",command=self.start_render,image=imgplay,width=32)
+        self.btplay.grid(row=0, column=0, sticky="e", padx=(0, 12), pady=0)
+        self.curtimelabel = customtkinter.CTkLabel(self.psframe, text="0:00:00.000")
         self.curtimelabel.grid(row=0, column=1, padx=(20, 20), pady=(20, 0))
-        self.btstop=customtkinter.CTkButton(master=self.psframe,text="stop",command=self.stop_render)
-        self.btstop.grid(row=0, column=2, sticky="ew", padx=(0, 12), pady=0)
+        imgstop=tk.PhotoImage(file='./imgs/stop.png')
+        self.btstop=customtkinter.CTkButton(master=self.psframe,text="stop",command=self.stop_render,image=imgstop,width=32)
+        self.btstop.grid(row=0, column=2, sticky="w", padx=(0, 12), pady=0)
 
         
         self.btmoins=customtkinter.CTkButton(master=self.frame_right,text="-",command=self.step_backward)
@@ -593,6 +617,9 @@ class App(customtkinter.CTk):
         self.powermax_val=customtkinter.CTkLabel(self.frame_runinfo, text="")
         self.powermax_val.grid(pady=(0, 0), padx=(10, 10), row=col, column=1,sticky="W")
         col+=1
+
+        self.btcsv=customtkinter.CTkButton(master=self.frame_runinfo,text="Export CSV",command=self.export_csv)
+        self.btcsv.grid(row=col, column=0, sticky="ew", padx=(12, 12), pady=12,columnspan=2)
 
               
 
@@ -725,6 +752,13 @@ class App(customtkinter.CTk):
         for channel in curline:
             if channel['channel']==ch:
                 ret=channel
+        return ret
+
+    def get_chancsv(self,ch,curline):
+        ret=[]
+        for channel in curline:
+            if channel['channel']==ch:
+                ret.append(channel)
         return ret
             
     def format_tab(self,inp):
@@ -982,28 +1016,31 @@ class App(customtkinter.CTk):
     def render(self):
         self.isplaying=True
         lastindex=-1
-        self.starttime = time.perf_counter()
+        rt=None
+        startindex=self.curindex
+        self.starttime = time.perf_counter_ns()
         while self.curindex < len(self.out)-1:
             if self.stopevent.is_set():
-                if rt:
+                if rt != None:
                     rt.join()
                 break
 ##            if self.pauseevent.is_set():
 ##                continue
-            now=time.perf_counter()
+            now=time.perf_counter_ns()
             elapsed = now - self.starttime
-            self.curindex+=elapsed*1000*100
-            inti=int(self.curindex)
+            #self.curindex+=elapsed*0.0001
+            self.curindex=startindex+elapsed*10e-9
+            inti=round(self.curindex)
             if(inti==lastindex):
-                self.starttime = time.perf_counter()
+                #self.starttime = time.perf_counter_ns()
                 continue
-            else: lastindex=inti
-            #self.update_carpos(inti)
-            rt=Thread(target=self.update_carpos,kwargs=({'i':inti}))
-            rt.start()
-            #time.sleep(0.05)
-            rt.join()
-            self.starttime = time.perf_counter()
+            else:
+                lastindex=inti
+                #self.update_carpos(inti)
+                rt=Thread(target=self.update_carpos,kwargs=({'i':inti}))
+                rt.start()
+                rt.join()
+                #self.starttime = time.perf_counter_ns()
         self.stopevent.clear()
         self.isplaying=False
 
@@ -1046,6 +1083,48 @@ class App(customtkinter.CTk):
 
     def start(self):
         self.mainloop()
+
+    def get_temp(self,temps,temp):
+        for t in temps:
+            if(t["decoded"][0][0]==temp):
+                return t["decoded"][0][1]
+
+    def export_csv(self):
+        
+        csvfile = tk.filedialog.asksaveasfile(
+            title='Export as CSV',
+            initialdir='/',
+            mode='w',
+            defaultextension=".csv")
+        if csvfile:
+            csvstr = "Time;Speed;Throttle;Lat;Lng;Glat;Glong;Steering_angle;External;Intake;Coolant;Oil;Gb_oil;Gb_clutch;Yawrate;Break_Flag;Break_pressure;Boost_pressure\n";
+            csvfile.write(csvstr)
+            for line in self.out:
+                strout=""
+                strout += str(self.get_chancsv(9,line)[0]["decoded"])+";"
+                strout += str(round(self.get_chancsv(64,line)[0]["decoded"],1))+";"
+                strout += str(round(self.get_chancsv(74,line)[0]["decoded"],1))+";"
+                strout += str(self.get_chancsv(10,line)[0]["decoded"][1])+";"
+                strout += str(self.get_chancsv(10,line)[0]["decoded"][0])+";"
+                strout += str(self.get_chancsv(8,line)[0]["decoded"][0])+";"
+                strout += str(self.get_chancsv(8,line)[0]["decoded"][1])+";"
+                strout += str(self.get_chancsv(93,line)[0]["decoded"])+";"
+                temps=self.get_chancsv(72,line)
+                strout += str(self.get_temp(temps,0x01))+";"
+                strout += str(self.get_temp(temps,0x06))+";"
+                strout += str(self.get_temp(temps,0x08))+";"
+                strout += str(self.get_temp(temps,0x09))+";"
+                strout += str(self.get_temp(temps,0x0A))+";"
+                strout += str(self.get_temp(temps,0x19))+";"
+                strout += str(round(self.get_chancsv(79,line)[0]["decoded"],1))+";"
+                strout += str(self.get_chancsv(25,line)[0]["decoded"])+";"
+                strout += str(self.get_chancsv(94,line)[1]["decoded"])+";"
+                strout += str(self.get_chancsv(94,line)[0]["decoded"])+";"
+                strout += "\n"
+                csvfile.write(strout)
+            csvfile.close()
+        else:
+            return
 
 
 if __name__ == "__main__":
