@@ -352,6 +352,7 @@ class App(customtkinter.CTk):
         self.stopevent = Event()
         self.pauseevent = Event()
         self.lastlap=-1
+        self.playspeed=1.0
 
         
     def set_custom_start(self,coords):
@@ -410,10 +411,10 @@ class App(customtkinter.CTk):
         curlap=chan["lap"]
         if curlap != self.lastlap:
             #self.pauseevent.set()
-            lt=Thread(target=self.extractlap,kwargs=({'i':curlap}))
-            lt.start()
-            time.sleep(0.1)
-            #self.extractlap(curlap)
+##            lt=Thread(target=self.extractlap,kwargs=({'i':curlap}))
+##            lt.start()
+##            lt.join()
+            self.extractlap(curlap)
             self.lastlap=curlap
             #self.pauseevent.clear()
 
@@ -450,6 +451,18 @@ class App(customtkinter.CTk):
         if(self.isplaying==True):return
         self.update_carpos(self.curindex-1)
         self.curindex=self.curindex-1
+
+    def speed_up(self):
+        self.stop_render()
+        self.playspeed*=2
+        self.start_render()
+        return
+
+    def speed_down(self):
+        self.stop_render()
+        self.playspeed*=0.5
+        self.start_render()
+        return
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -534,7 +547,13 @@ class App(customtkinter.CTk):
         imgstop=tk.PhotoImage(file='./imgs/stop.png')
         self.btstop=customtkinter.CTkButton(master=self.psframe,text="stop",command=self.stop_render,image=imgstop,width=32)
         self.btstop.grid(row=0, column=2, sticky="w", padx=(0, 12), pady=0)
-
+        imgslower=tk.PhotoImage(file='./imgs/slower.png')
+        self.btlower=customtkinter.CTkButton(master=self.psframe,text="slower",command=self.speed_down,image=imgslower,width=32)
+        self.btlower.grid(row=0, column=3, sticky="e", padx=(0, 12), pady=0)
+        imgfaster=tk.PhotoImage(file='./imgs/faster.png')
+        self.btfaster=customtkinter.CTkButton(master=self.psframe,text="faster",command=self.speed_up,image=imgfaster,width=32)
+        self.btfaster.grid(row=0, column=4, sticky="e", padx=(0, 12), pady=0)
+        
         
         self.btmoins=customtkinter.CTkButton(master=self.frame_right,text="-",command=self.step_backward)
         self.btmoins.grid(row=3, column=0, sticky="we", padx=(0, 12), pady=0)
@@ -636,6 +655,8 @@ class App(customtkinter.CTk):
         self.starticon = ImageTk.PhotoImage(Image.open(os.path.join(self.current_path, "imgs", "finish-icon-24.png")).resize((48, 48)))
         self.caricon = ImageTk.PhotoImage(Image.open(os.path.join(self.current_path, "imgs", "car_pin.png")).resize((48, 48)))
 
+        self.btstop.configure(state="disabled")
+        self.btplay.configure(state="disabled")
         self.init_vars()
         
     def compute_value(self,c,d):
@@ -686,7 +707,7 @@ class App(customtkinter.CTk):
         elif c==74: #throttle
             return (((d[2] << 8) & 0xFF00) + (d[1] & 0x00FF)) * 0.1
         elif c==57: #altitude
-            alt=(((d[0] << 24) & 0x7F000000) + ((d[1] << 16) & 0x00FF0000) + ((d[2] << 8) & 0x0000FF00) + (0x000000FF & d[3]))
+            alt=(((d[0] << 24) & 0x7F000000) + ((d[1] << 16) & 0x00FF0000) + ((d[2] << 8) & 0x0000FF00) + (0x000000FF & d[3])) * 0.0000001
             acc=(((d[4] << 24) & 0xFF000000) + ((d[5] << 16) & 0x00FF0000) + ((d[6] << 8) & 0x0000FF00) + (0x000000FF & d[7])) * 0.001
             return([alt,acc])
         elif c==27: #vitesse engagee
@@ -1011,6 +1032,7 @@ class App(customtkinter.CTk):
         self.axgf.plot('Glat', 'Glon', data=df,linestyle='', marker='o', markersize=3, alpha=0.05)
         self.figgf.canvas.draw_idle()
 
+        self.btplay.configure(state="normal")
         popup.destroy()
 
     def render(self):
@@ -1029,7 +1051,7 @@ class App(customtkinter.CTk):
             now=time.perf_counter_ns()
             elapsed = now - self.starttime
             #self.curindex+=elapsed*0.0001
-            self.curindex=startindex+elapsed*10e-9
+            self.curindex=startindex+elapsed*10e-9*self.playspeed
             inti=round(self.curindex)
             if(inti==lastindex):
                 #self.starttime = time.perf_counter_ns()
@@ -1046,6 +1068,8 @@ class App(customtkinter.CTk):
 
     def start_render(self):
         #create render thread
+        self.btstop.configure(state="normal")
+        self.btplay.configure(state="disabled")
         self.t_render=Thread(target=self.render)
         self.t_render.start()
 
@@ -1053,6 +1077,8 @@ class App(customtkinter.CTk):
         #stop render thread
         self.stopevent.set()
         #self.t_render.join()
+        self.btstop.configure(state="disabled")
+        self.btplay.configure(state="normal")
             
     def search_event(self, event=None):
         self.map_widget.set_address(self.entry.get())
@@ -1097,11 +1123,11 @@ class App(customtkinter.CTk):
             mode='w',
             defaultextension=".csv")
         if csvfile:
-            csvstr = "Time;Speed;Throttle;Lat;Lng;Glat;Glong;Steering_angle;External;Intake;Coolant;Oil;Gb_oil;Gb_clutch;Yawrate;Break_Flag;Break_pressure;Boost_pressure\n";
+            csvstr = "Time;Speed;Throttle;Lat;Lng;Glat;Glong;Steering_angle;External;Intake;Coolant;Oil;Gb_oil;Gb_clutch;Yawrate;Break_Flag;Break_pressure;Boost_pressure;Power;Torque;Gear;Engine RPM;RR Wheel;RL Wheel;FR Wheel;FL Wheel;Altitude;Alt Accuracy\n";
             csvfile.write(csvstr)
             for line in self.out:
                 strout=""
-                strout += str(self.get_chancsv(9,line)[0]["decoded"])+";"
+                strout += str(self.get_chancsv(9,line)[0]["decoded"]*10)+";"
                 strout += str(round(self.get_chancsv(64,line)[0]["decoded"],1))+";"
                 strout += str(round(self.get_chancsv(74,line)[0]["decoded"],1))+";"
                 strout += str(self.get_chancsv(10,line)[0]["decoded"][1])+";"
@@ -1120,6 +1146,16 @@ class App(customtkinter.CTk):
                 strout += str(self.get_chancsv(25,line)[0]["decoded"])+";"
                 strout += str(self.get_chancsv(94,line)[1]["decoded"])+";"
                 strout += str(self.get_chancsv(94,line)[0]["decoded"])+";"
+                strout += str(self.get_chancsv(23,line)[0]["decoded"])+";"
+                strout += str(self.get_chancsv(26,line)[0]["decoded"])+";"
+                strout += str(self.get_chancsv(27,line)[0]["decoded"])+";"
+                strout += str(round(self.get_chancsv(18,line)[0]["decoded"]))+";"
+                strout += str(round(self.get_chancsv(14,line)[0]["decoded"]))+";"
+                strout += str(round(self.get_chancsv(15,line)[0]["decoded"]))+";"
+                strout += str(round(self.get_chancsv(16,line)[0]["decoded"]))+";"
+                strout += str(round(self.get_chancsv(17,line)[0]["decoded"]))+";"
+                strout += str(round(self.get_chancsv(57,line)[0]["decoded"][0],2))+";"
+                strout += str(round(self.get_chancsv(57,line)[0]["decoded"][1],2))
                 strout += "\n"
                 csvfile.write(strout)
             csvfile.close()
