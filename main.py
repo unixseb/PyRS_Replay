@@ -453,16 +453,26 @@ class App(customtkinter.CTk):
         self.curindex=self.curindex-1
 
     def speed_up(self):
-        self.stop_render()
+        needrestart=False
+        if self.isplaying:
+            self.stop_render()
+            needrestart=True
         self.playspeed*=2
-        self.start_render()
-        return
+        if self.playspeed>8 : self.playspeed=8.0
+        if needrestart:
+            self.start_render()
+        self.rslabel.configure(text=str(round(self.playspeed,3))+"x")
 
     def speed_down(self):
-        self.stop_render()
+        needrestart=False
+        if self.isplaying:
+            self.stop_render()
+            needrestart=True
         self.playspeed*=0.5
-        self.start_render()
-        return
+        if self.playspeed<0.125 : self.playspeed=0.125
+        if needrestart:
+            self.start_render()
+        self.rslabel.configure(text=str(round(self.playspeed,3))+"x")
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -536,8 +546,8 @@ class App(customtkinter.CTk):
 
         self.psframe=customtkinter.CTkFrame(master=self.frame_right,corner_radius=0, fg_color=None)
         self.psframe.grid(row=2, column=0, sticky="nsew",columnspan=3)
-        self.psframe.grid_columnconfigure(0, weight=1)
-        self.psframe.grid_columnconfigure(2, weight=1)
+        self.psframe.grid_columnconfigure(1, weight=1)
+        self.psframe.grid_columnconfigure(4, weight=1)
         
         imgplay=tk.PhotoImage(file='./imgs/play.png')
         self.btplay=customtkinter.CTkButton(master=self.psframe,text="play",command=self.start_render,image=imgplay,width=32)
@@ -550,9 +560,11 @@ class App(customtkinter.CTk):
         imgslower=tk.PhotoImage(file='./imgs/slower.png')
         self.btlower=customtkinter.CTkButton(master=self.psframe,text="slower",command=self.speed_down,image=imgslower,width=32)
         self.btlower.grid(row=0, column=3, sticky="e", padx=(0, 12), pady=0)
+        self.rslabel=customtkinter.CTkLabel(self.psframe, text="1.0x",width=50)
+        self.rslabel.grid(row=0, column=4, padx=(20, 20), pady=(20, 0))
         imgfaster=tk.PhotoImage(file='./imgs/faster.png')
         self.btfaster=customtkinter.CTkButton(master=self.psframe,text="faster",command=self.speed_up,image=imgfaster,width=32)
-        self.btfaster.grid(row=0, column=4, sticky="e", padx=(0, 12), pady=0)
+        self.btfaster.grid(row=0, column=5, sticky="e", padx=(0, 12), pady=0)
         
         
         self.btmoins=customtkinter.CTkButton(master=self.frame_right,text="-",command=self.step_backward)
@@ -1116,12 +1128,12 @@ class App(customtkinter.CTk):
                 return t["decoded"][0][1]
 
     def export_csv(self):
-        
         csvfile = tk.filedialog.asksaveasfile(
             title='Export as CSV',
             initialdir='/',
             mode='w',
-            defaultextension=".csv")
+            defaultextension=".csv",
+            filetypes=[("CSV Documents","*.csv")])
         if csvfile:
             csvstr = "Time;Speed;Throttle;Lat;Lng;Glat;Glong;Steering_angle;External;Intake;Coolant;Oil;Gb_oil;Gb_clutch;Yawrate;Break_Flag;Break_pressure;Boost_pressure;Power;Torque;Gear;Engine RPM;RR Wheel;RL Wheel;FR Wheel;FL Wheel;Altitude;Alt Accuracy\n";
             csvfile.write(csvstr)
