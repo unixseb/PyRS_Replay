@@ -486,7 +486,7 @@ class App(customtkinter.CTk):
         self.bind("<Command-w>", self.on_closing)
         self.createcommand('tk::mac::Quit', self.on_closing)
 
-        self.wm_attributes('-transparentcolor', '#ab23ff')
+        self.wm_attributes('-transparent', True)
         
         # ============ create two CTkFrames ============
 
